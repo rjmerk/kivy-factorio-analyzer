@@ -10,14 +10,15 @@ URL_FLUIDS = '/Category:Fluids'
 
 
 def main():
-    resource_links = scrape_links(URL_RESOURCES)
-    fluid_links = scrape_links(URL_FLUIDS)
-    science_links = scrape_links(URL_SCIENCE_PACKS)
+    resource_links = links_scraped_from(fetched_page(URL_RESOURCES))
+    fluid_links = links_scraped_from(fetched_page(URL_FLUIDS))
+    science_links = links_scraped_from(fetched_page(URL_SCIENCE_PACKS))
     for link in science_links:
-        data = scrape_component_data(link)
+        data = scrape_component_data_from(fetched_page(link))
         print(data['name'])
     component_links = [
-        link for link in scrape_links(URL_INTERMEDIATE_PRODUCTS)
+        link
+        for link in links_scraped_from(fetched_page(URL_INTERMEDIATE_PRODUCTS))
         if link not in resource_links
         and link not in fluid_links
         and link not in science_links
@@ -25,14 +26,19 @@ def main():
     ]
     print("=========================")
     for link in component_links:
-        data = scrape_component_data(link)
+        data = scrape_component_data_from(fetched_page(link))
         print(data['name'])
+    print(len(science_links) + len(component_links))
 
 
-def scrape_links(url):
+def fetched_page(url):
     page = requests.get(DOMAIN + url)
     page.raise_for_status()
-    soup = BeautifulSoup(page.text, PARSER)
+    return page.text
+
+
+def links_scraped_from(html):
+    soup = BeautifulSoup(html, PARSER)
     category_div = soup.find('div', class_='mw-category')
     return [
         link.get('href')
@@ -42,10 +48,8 @@ def scrape_links(url):
     ]
 
 
-def scrape_component_data(link):
-    page = requests.get(DOMAIN + link)
-    page.raise_for_status()
-    soup = BeautifulSoup(page.text, PARSER)
+def scrape_component_data_from(html):
+    soup = BeautifulSoup(html, PARSER)
     name = soup.find(id='firstHeading').string
     sidebar = soup.find(class_='tabbertab')
     if not sidebar:
