@@ -10,25 +10,27 @@ URL_FLUIDS = '/Category:Fluids'
 
 
 def main():
-    resource_links = links_scraped_from(fetched_page(URL_RESOURCES))
-    fluid_links = links_scraped_from(fetched_page(URL_FLUIDS))
-    science_links = links_scraped_from(fetched_page(URL_SCIENCE_PACKS))
+    resource_links = links_parsed_from(fetched_page(URL_RESOURCES))
+    fluid_links = links_parsed_from(fetched_page(URL_FLUIDS))
+    science_links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
+    print("==== Science packs ====")
     for link in science_links:
-        data = scrape_component_data_from(fetched_page(link))
+        data = parse_component_from(fetched_page(link))
         print(data['name'])
     component_links = [
         link
-        for link in links_scraped_from(fetched_page(URL_INTERMEDIATE_PRODUCTS))
+        for link in links_parsed_from(fetched_page(URL_INTERMEDIATE_PRODUCTS))
         if link not in resource_links
         and link not in fluid_links
         and link not in science_links
         and link != '/Space_science_pack'
     ]
-    print("=========================")
+    print()
+    print("==== Components ====")
     for link in component_links:
-        data = scrape_component_data_from(fetched_page(link))
+        data = parse_component_from(fetched_page(link))
         print(data['name'])
-    print(len(science_links) + len(component_links))
+    print("Pages parsed: {}".format(len(science_links) + len(component_links)))
 
 
 def fetched_page(url):
@@ -37,7 +39,7 @@ def fetched_page(url):
     return page.text
 
 
-def links_scraped_from(html):
+def links_parsed_from(html):
     soup = BeautifulSoup(html, PARSER)
     category_div = soup.find('div', class_='mw-category')
     return [
@@ -48,7 +50,7 @@ def links_scraped_from(html):
     ]
 
 
-def scrape_component_data_from(html):
+def parse_component_from(html):
     soup = BeautifulSoup(html, PARSER)
     name = soup.find(id='firstHeading').string
     sidebar = soup.find(class_='tabbertab')
