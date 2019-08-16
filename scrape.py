@@ -2,7 +2,6 @@ from bs4 import BeautifulSoup
 import requests
 
 PARSER = 'lxml'
-
 DOMAIN = 'https://wiki.factorio.com'
 URL_INTERMEDIATE_PRODUCTS = '/Category:Intermediate_products'
 URL_SCIENCE_PACKS = '/Category:Science_packs'
