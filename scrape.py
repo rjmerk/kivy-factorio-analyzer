@@ -5,18 +5,33 @@ PARSER = 'lxml'
 
 DOMAIN = 'https://wiki.factorio.com'
 URL_INTERMEDIATE_PRODUCTS = '/Category:Intermediate_products'
+URL_SCIENCE_PACKS = '/Category:Science_packs'
+URL_RESOURCES = '/Category:Resources'
+URL_FLUIDS = '/Category:Fluids'
 
 
 def main():
-    links = scrape_links_for_intermediate_products()
-    for link in links:
+    resource_links = scrape_links(URL_RESOURCES)
+    fluid_links = scrape_links(URL_FLUIDS)
+    science_links = scrape_links(URL_SCIENCE_PACKS)
+    for link in science_links:
         data = scrape_component_data(link)
-        print(data)
-        print("=========================")
+        print(data['name'])
+    component_links = [
+        link for link in scrape_links(URL_INTERMEDIATE_PRODUCTS)
+        if link not in resource_links
+        and link not in fluid_links
+        and link not in science_links
+        and link != '/Space_science_pack'
+    ]
+    print("=========================")
+    for link in component_links:
+        data = scrape_component_data(link)
+        print(data['name'])
 
 
-def scrape_links_for_intermediate_products():
-    page = requests.get(DOMAIN + URL_INTERMEDIATE_PRODUCTS)
+def scrape_links(url):
+    page = requests.get(DOMAIN + url)
     page.raise_for_status()
     soup = BeautifulSoup(page.text, PARSER)
     category_div = soup.find('div', class_='mw-category')
@@ -34,18 +49,13 @@ def scrape_component_data(link):
     soup = BeautifulSoup(page.text, PARSER)
     name = soup.find(id='firstHeading').string
     sidebar = soup.find(class_='tabbertab')
-    if sidebar:
-        return scrape_component_with_recipe(name, sidebar)
-    else:
+    if not sidebar:
         return {
             'name': name,
             'time': -1,
             'inputs': [],
             'output_amount': 1
         }
-
-
-def scrape_component_with_recipe(name, sidebar):
     recipe_block = (
         sidebar
         .find('table')
@@ -72,7 +82,6 @@ def scrape_component_with_recipe(name, sidebar):
         .find('div', class_='factorio-icon-text')
         .string
     )
-
     return {
         'name': name,
         'time': time,
