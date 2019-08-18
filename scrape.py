@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 import requests
 
+from sql import save_scraped_data
+
 PARSER = 'lxml'
 DOMAIN = 'https://wiki.factorio.com'
 URL_INTERMEDIATE_PRODUCTS = '/Category:Intermediate_products'
@@ -13,10 +15,13 @@ def main():
     resource_links = links_parsed_from(fetched_page(URL_RESOURCES))
     fluid_links = links_parsed_from(fetched_page(URL_FLUIDS))
     science_links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
-    print("==== Science packs ====")
-    for link in science_links:
-        data = parse_component_from(fetched_page(link))
-        print(data['name'])
+
+    recipes = [
+        parse_recipe_from(fetched_page(link))
+        for link in science_links
+    ]
+    save_scraped_data(recipes)
+
     component_links = [
         link
         for link in links_parsed_from(fetched_page(URL_INTERMEDIATE_PRODUCTS))
@@ -25,12 +30,11 @@ def main():
         and link not in science_links
         and link != '/Space_science_pack'
     ]
-    print()
-    print("==== Components ====")
-    for link in component_links:
-        data = parse_component_from(fetched_page(link))
-        print(data['name'])
-    print("Pages parsed: {}".format(len(science_links) + len(component_links)))
+    recipes = [
+        parse_recipe_from(fetched_page(link))
+        for link in component_links
+    ]
+    save_scraped_data(recipes)
 
 
 def fetched_page(url):
@@ -50,13 +54,13 @@ def links_parsed_from(html):
     ]
 
 
-def parse_component_from(html):
+def parse_recipe_from(html):
     soup = BeautifulSoup(html, PARSER)
     name = soup.find(id='firstHeading').string
     sidebar = soup.find(class_='tabbertab')
     if not sidebar:
         return {
-            'name': name,
+            'output_name': name,
             'time': -1,
             'inputs': [],
             'output_amount': 1
@@ -70,7 +74,7 @@ def parse_component_from(html):
         recipe_block
         .find_all('div', class_='factorio-icon')
     )
-    time = (
+    time = float(
         subcomponents[0]
         .find('div', class_='factorio-icon-text')
         .string
@@ -88,7 +92,7 @@ def parse_component_from(html):
         .string
     )
     return {
-        'name': name,
+        'output_name': name,
         'time': time,
         'inputs': inputs,
         'output_amount': output
