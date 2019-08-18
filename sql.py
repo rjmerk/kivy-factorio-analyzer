@@ -35,11 +35,16 @@ class RecipeInput(Base):
     amount = Column(Float)
 
 
-def save_scraped_data(scraped_recipes):
-    engine = create_engine('sqlite:///factorio.db', echo=True)
-    Base.metadata.create_all(engine)
+def create_session(echo=True):
+    engine = create_engine('sqlite:///factorio.db', echo=echo)
+    # Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    return session
+
+
+def save_scraped_data(scraped_recipes):
+    session = create_session()
     for scraped_recipe in scraped_recipes:
         print(scraped_recipe['time'])
         try:
@@ -69,3 +74,31 @@ def save_scraped_data(scraped_recipes):
             session.add(recipe_input)
 
     session.commit()
+
+
+def show_assembler_ratios():
+    session = create_session(False)
+    for component in session.query(Component).order_by(Component.name):
+        print('To supply 1 assembler producing {}, you need:'.format(
+            component.name))
+        recipe = session.query(Recipe)\
+            .filter(Recipe.output_id == component.id).first()
+        if not recipe:
+            print("    Nothing!")
+            continue
+        inputs = session.query(RecipeInput)\
+            .filter(RecipeInput.recipe_id == recipe.id)
+        for input in inputs:
+            print('    ' + input_ratio(session, recipe, input))
+
+
+def input_ratio(session, recipe, input):
+    needed_inputs_per_second = recipe.output_amount * input.amount / recipe.time
+    input_recipe = session.query(Recipe).filter(
+        Recipe.output_id == input.component_id).first()
+    if not input_recipe:
+        return 'No input recipe found'
+    input_items_per_second = input_recipe.output_amount / input_recipe.time
+    ratio = needed_inputs_per_second / input_items_per_second
+    return '{:.2f} assemblers producing {}'.format(
+                ratio, input.component.name)

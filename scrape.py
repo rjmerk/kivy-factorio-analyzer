@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 
-from sql import save_scraped_data
+from sql import save_scraped_data, show_assembler_ratios
 
 PARSER = 'lxml'
 DOMAIN = 'https://wiki.factorio.com'
@@ -12,6 +12,8 @@ URL_FLUIDS = '/Category:Fluids'
 
 
 def main():
+    show_assembler_ratios()
+    return
     resource_links = links_parsed_from(fetched_page(URL_RESOURCES))
     fluid_links = links_parsed_from(fetched_page(URL_FLUIDS))
     science_links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
