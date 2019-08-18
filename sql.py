@@ -23,6 +23,7 @@ class Recipe(Base):
     output_id = Column(Integer, ForeignKey('component.id'))
     output = relationship('Component')
     output_amount = Column(Float)
+    produced_by = Column(String)
 
 
 class RecipeInput(Base):
@@ -42,6 +43,7 @@ def run_schema_creation():
 
 def create_session(echo=True):
     engine = create_engine('sqlite:///factorio.db', echo=echo)
+    Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
     return session
@@ -58,7 +60,8 @@ def save_scraped_recipe(scraped_recipe):
     recipe = Recipe(
         time=scraped_recipe['time'],
         output=component,
-        output_amount=scraped_recipe['output_amount']
+        output_amount=scraped_recipe['output_amount'],
+        produced_by=scraped_recipe['produced_by']
     )
     session.add(recipe)
     for input in scraped_recipe['inputs']:
@@ -103,5 +106,13 @@ def input_ratio(session, recipe, input):
         return 'No input recipe found'
     input_items_per_second = input_recipe.output_amount / input_recipe.time
     ratio = needed_inputs_per_second / input_items_per_second
-    return '{:.2f}x {}'.format(
-                ratio, input.component.name)
+    if input_recipe.produced_by != 'assembler':
+        produced_by = ' ({})'.format(input_recipe.produced_by)
+    else:
+        produced_by = ''
+
+    return '{:.2f}x {}{}'.format(
+        ratio,
+        input.component.name,
+        produced_by,
+    )
