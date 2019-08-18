@@ -35,51 +35,54 @@ class RecipeInput(Base):
     amount = Column(Float)
 
 
+def run_schema_creation():
+    engine = create_engine('sqlite:///factorio.db')
+    Base.metadata.create_all(engine)
+
+
 def create_session(echo=True):
     engine = create_engine('sqlite:///factorio.db', echo=echo)
-    # Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
     return session
 
 
-def save_scraped_data(scraped_recipes):
-    session = create_session()
-    for scraped_recipe in scraped_recipes:
-        print(scraped_recipe['time'])
+def save_scraped_recipe(scraped_recipe):
+    session = create_session(False)
+    try:
+        component = session.query(Component).filter(
+            Component.name == scraped_recipe['output_name']).one()
+    except NoResultFound:
+        component = Component(name=scraped_recipe['output_name'])
+        session.add(component)
+    recipe = Recipe(
+        time=scraped_recipe['time'],
+        output=component,
+        output_amount=scraped_recipe['output_amount']
+    )
+    session.add(recipe)
+    for input in scraped_recipe['inputs']:
         try:
             component = session.query(Component).filter(
-                Component.name == scraped_recipe['output_name']).one()
+                Component.name == input['name']).one()
         except NoResultFound:
-            component = Component(name=scraped_recipe['output_name'])
-            session.add(component)
-        recipe = Recipe(
-            time=scraped_recipe['time'],
-            output=component,
-            output_amount=scraped_recipe['output_amount']
+            component = Component(name=input['name'])
+        session.add(component)
+        recipe_input = RecipeInput(
+            component=component,
+            recipe=recipe,
+            amount=input['amount']
         )
-        session.add(recipe)
-        for input in scraped_recipe['inputs']:
-            try:
-                component = session.query(Component).filter(
-                    Component.name == input['name']).one()
-            except NoResultFound:
-                component = Component(name=input['name'])
-            session.add(component)
-            recipe_input = RecipeInput(
-                component=component,
-                recipe=recipe,
-                amount=input['amount']
-            )
-            session.add(recipe_input)
+        session.add(recipe_input)
 
     session.commit()
 
 
 def show_assembler_ratios():
+    print("This list shows how many assemblers you need for each input component to fully supply an assembler producing some component.")
     session = create_session(False)
     for component in session.query(Component).order_by(Component.name):
-        print('To supply 1 assembler producing {}, you need:'.format(
+        print('{}'.format(
             component.name))
         recipe = session.query(Recipe)\
             .filter(Recipe.output_id == component.id).first()
@@ -100,5 +103,5 @@ def input_ratio(session, recipe, input):
         return 'No input recipe found'
     input_items_per_second = input_recipe.output_amount / input_recipe.time
     ratio = needed_inputs_per_second / input_items_per_second
-    return '{:.2f} assemblers producing {}'.format(
+    return '{:.2f}x {}'.format(
                 ratio, input.component.name)

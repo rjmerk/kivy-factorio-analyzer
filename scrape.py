@@ -1,42 +1,27 @@
 from bs4 import BeautifulSoup
 import requests
 
-from sql import save_scraped_data, show_assembler_ratios
+from sql import save_scraped_recipe, show_assembler_ratios
 
 PARSER = 'lxml'
 DOMAIN = 'https://wiki.factorio.com'
-URL_INTERMEDIATE_PRODUCTS = '/Category:Intermediate_products'
 URL_SCIENCE_PACKS = '/Category:Science_packs'
-URL_RESOURCES = '/Category:Resources'
-URL_FLUIDS = '/Category:Fluids'
 
 
 def main():
     show_assembler_ratios()
     return
-    resource_links = links_parsed_from(fetched_page(URL_RESOURCES))
-    fluid_links = links_parsed_from(fetched_page(URL_FLUIDS))
-    science_links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
-
-    recipes = [
-        parse_recipe_from(fetched_page(link))
-        for link in science_links
-    ]
-    save_scraped_data(recipes)
-
-    component_links = [
-        link
-        for link in links_parsed_from(fetched_page(URL_INTERMEDIATE_PRODUCTS))
-        if link not in resource_links
-        and link not in fluid_links
-        and link not in science_links
-        and link != '/Space_science_pack'
-    ]
-    recipes = [
-        parse_recipe_from(fetched_page(link))
-        for link in component_links
-    ]
-    save_scraped_data(recipes)
+    links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
+    visited_links = set()
+    while links:
+        link = links.pop()
+        recipe = parse_recipe_from(fetched_page(link))
+        save_scraped_recipe(recipe)
+        visited_links.add(link)
+        for input in recipe['inputs']:
+            new_link = input.get('link')
+            if new_link is not None and new_link not in visited_links:
+                links.append(new_link)
 
 
 def fetched_page(url):
@@ -84,7 +69,8 @@ def parse_recipe_from(html):
     inputs = [
         {
             'name':  n.find('a')['title'],
-            'amount': n.find('div', class_='factorio-icon-text').string
+            'amount': n.find('div', class_='factorio-icon-text').string,
+            'link': n.find('a')['href'],
         }
         for n in subcomponents[1:-1]
     ]
