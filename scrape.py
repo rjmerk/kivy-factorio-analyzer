@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 import re
+
 from sql import save_scraped_recipe, show_assembler_ratios
 
 PARSER = 'lxml'
@@ -10,7 +11,6 @@ URL_SCIENCE_PACKS = '/Category:Science_packs'
 
 def main():
     show_assembler_ratios()
-    # mmm()
     return
     links = links_parsed_from(fetched_page(URL_SCIENCE_PACKS))
     visited_links = set()
@@ -23,12 +23,6 @@ def main():
             new_link = input.get('link')
             if new_link is not None and new_link not in visited_links:
                 links.append(new_link)
-
-
-def mmm():
-    html = fetched_page('/Iron_plate')
-    soup = BeautifulSoup(html, PARSER)
-
 
 
 def fetched_page(url):
@@ -100,7 +94,7 @@ def parse_recipe_from(html):
 
 def find_produced_by(soup):
     try:
-        production_tablerow = (
+        production_row = (
             soup.find(class_='infobox')
             .find("p", string=re.compile('Produced by'))
             .find_parent('tr')
@@ -108,25 +102,21 @@ def find_produced_by(soup):
     except AttributeError:
         return 'unknown'
 
-    if production_tablerow is None:
+    if production_row is None:
         return 'unknown'
-    elif production_tablerow.find('a', href=is_assembler_link) is not None:
+    elif (production_row
+          .find('a', href=re.compile('/Assembling_machine_')) is not None):
         return "assembler"
-
-    elif production_tablerow.find('a', href="/Stone_furnace") is not None:
+    elif production_row.find('a', href=re.compile("/.*furnace")) is not None:
         return 'furnace'
-    elif production_tablerow.find('a', href="/Chemical_plant") is not None:
+    elif production_row.find('a', href="/Chemical_plant") is not None:
         return 'chemical_plant'
-    elif production_tablerow.find('a', href="/Electric_mining_drill") is not None:
+    elif production_row.find('a', href="/Electric_mining_drill") is not None:
         return 'mining'
-    elif production_tablerow.find('a', href="/Oil_refinery") is not None:
+    elif production_row.find('a', href="/Oil_refinery") is not None:
         return 'refinery'
     else:
         return 'unknown'
-
-
-def is_assembler_link(href):
-    return href.startswith("/Assembling_machine_")
 
 
 if __name__ == '__main__':
