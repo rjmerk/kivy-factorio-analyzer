@@ -1,7 +1,7 @@
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, ForeignKey)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, aliased
 from sqlalchemy.orm.exc import NoResultFound
 
 Base = declarative_base()
@@ -82,20 +82,38 @@ def save_scraped_recipe(scraped_recipe):
 
 
 def show_assembler_ratios():
-    print("This list shows how many assemblers you need for each input component to fully supply an assembler producing some component.")
-    session = create_session(False)
-    for component in session.query(Component).order_by(Component.name):
-        print('{}'.format(
-            component.name))
-        recipe = session.query(Recipe)\
-            .filter(Recipe.output_id == component.id).first()
-        if not recipe:
-            print("    Nothing!")
-            continue
-        inputs = session.query(RecipeInput)\
-            .filter(RecipeInput.recipe_id == recipe.id)
-        for input in inputs:
-            print('    ' + input_ratio(session, recipe, input))
+    for r in calculate_ratios():
+        print(r.id, r.ratio, r.input, r.output)
+
+
+def calculate_ratios():
+    session = create_session(True)
+    output_recipe = aliased(Recipe)
+    input_recipe = aliased(Recipe)
+    output_component = aliased(Component)
+    input_component = aliased(Component)
+    flows = (
+        session.query(
+            RecipeInput.id,
+            (RecipeInput.amount / output_recipe.time * 60)
+            .label('needed_per_min'),
+            (input_recipe.output_amount / input_recipe.time * 60)
+            .label('created_per_min'),
+            output_component.name.label('output'),
+            input_component.name.label('input'),
+        )
+        .join(output_recipe, output_recipe.id == RecipeInput.recipe_id)
+        .join(input_recipe, input_recipe.output_id == RecipeInput.component_id)
+        .join(output_component, output_component.id == output_recipe.output_id)
+        .join(input_component, input_component.id == input_recipe.output_id)
+        .subquery()
+    )
+    ratios = session.query(
+        flows,
+        (flows.c.needed_per_min / flows.c.created_per_min)
+        .label('ratio')
+    )
+    return ratios
 
 
 def input_ratio(session, recipe, input):
