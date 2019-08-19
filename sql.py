@@ -77,43 +77,33 @@ def save_scraped_recipe(scraped_recipe):
             amount=input['amount']
         )
         session.add(recipe_input)
-
     session.commit()
 
 
 def show_assembler_ratios():
-    for r in calculate_ratios():
-        print(r.id, r.ratio, r.input, r.output)
-
-
-def calculate_ratios():
     session = create_session(True)
+    for r in recipe_inputs_with_ratios(session):
+        print(r.id, r.ratio, r.component_id)
+
+
+def recipe_inputs_with_ratios(session):
     output_recipe = aliased(Recipe)
     input_recipe = aliased(Recipe)
-    output_component = aliased(Component)
-    input_component = aliased(Component)
-    flows = (
-        session.query(
-            RecipeInput.id,
-            (RecipeInput.amount / output_recipe.time * 60)
-            .label('needed_per_min'),
-            (input_recipe.output_amount / input_recipe.time * 60)
-            .label('created_per_min'),
-            output_component.name.label('output'),
-            input_component.name.label('input'),
-        )
-        .join(output_recipe, output_recipe.id == RecipeInput.recipe_id)
-        .join(input_recipe, input_recipe.output_id == RecipeInput.component_id)
-        .join(output_component, output_component.id == output_recipe.output_id)
-        .join(input_component, input_component.id == input_recipe.output_id)
+    flows = session.query(
+        RecipeInput,
+        (RecipeInput.amount / output_recipe.time * 60)
+        .label('needed_per_min'),
+        (input_recipe.output_amount / input_recipe.time * 60)
+        .label('created_per_min')
+    )\
+        .join(output_recipe, output_recipe.id == RecipeInput.recipe_id)\
+        .join(input_recipe, input_recipe.output_id == RecipeInput.component_id)\
         .subquery()
-    )
-    ratios = session.query(
+    return session.query(
         flows,
         (flows.c.needed_per_min / flows.c.created_per_min)
         .label('ratio')
     )
-    return ratios
 
 
 def input_ratio(session, recipe, input):
