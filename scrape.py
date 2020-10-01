@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
-import requests
-import re
+import requests           # here we import requests .
+import re                 # we import re.
 
 from sql import save_scraped_recipe, show_assembler_ratios
 
